@@ -19,7 +19,7 @@ $READS = "sim_chr21_N100.fastq"
 # This command extracts SNPs and INDELs from a list of VCF files, write the SNPs into mg-ref-output/SNP.extract.chrxx.data, 
 # and write the INDELs into mg-ref-output/INDEL.extract.chrxx.data, where xx is a chromosome identified from the reference genome.
 
-# docker run --rm -it -v "$(pwd)/input:/input" -v "$(pwd)/ref-output:/mg-ref-output" -w / bwbble-ref:dev data_prep /input/$VCF
+docker run --rm -it -v "$(pwd)/input:/input" -v "$(pwd)/ref-output:/mg-ref-output" -w / bwbble-ref:dev data_prep /input/$VCF
  
 
 #This command reads SNPs from mg-ref-output/SNP.extract.chrxx.data and INDELs from mg-ref-output/INDEL.extract.chrxx.data
@@ -37,6 +37,7 @@ $READS = "sim_chr21_N100.fastq"
  docker run --rm -it -v "$(pwd)/input:/input" -v "$(pwd)/ref-output:/mg-ref-output" -v "$(pwd)/align-output:/mg-align-output" bwbble-align:dev2 align -s 0 -p 50 /mg-ref-output/ref_w_snp.fasta /input/$READS /mg-align-output/aligned_reads.0.aln
  docker run --rm -it -v "$(pwd)/input:/input" -v "$(pwd)/ref-output:/mg-ref-output" -v "$(pwd)/align-output:/mg-align-output" bwbble-align:dev2 align -s 50 -p 50 /mg-ref-output/ref_w_snp.fasta /input/$READS /mg-align-output/aligned_reads.1.aln
 
+ # cat f1 f2 f3 ... > fOut
  Get-Content ./align-output/aligned_reads.0.aln,./align-output/aligned_reads.1.aln -Encoding Byte -Read 512 | Set-Content ./align-output/aligned_reads.aln -Encoding Byte
 
  docker run --rm -it -v "$(pwd)/input:/input" -v "$(pwd)/ref-output:/mg-ref-output" -v "$(pwd)/align-output:/mg-align-output" bwbble-align:dev aln2sam /mg-ref-output/ref_w_snp.fasta /input/$READS /mg-align-output/aligned_reads.aln /mg-align-output/aligned_reads.sam
