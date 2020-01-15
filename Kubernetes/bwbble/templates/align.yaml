@@ -20,7 +20,7 @@ spec:
         app.kubernetes.io/managed-by: faaideen
     spec:
       restartPolicy: Never
-      {{ if $.Values.dataprep.enabled }}
+      {{ if or ($.Values.dataprep.enabled) ($.Values.index.enabled) }}
       initContainers:
       - name: wait-for-index-job
         image: bitnami/kubectl

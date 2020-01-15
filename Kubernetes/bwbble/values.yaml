@@ -20,6 +20,9 @@ dataprep:
   bubble_file: bubble.data
   snp_bubble_file: ref_w_snp_and_bubble.fasta
 
+index:
+  enabled: true
+
 align:
   enabled: true
   image:

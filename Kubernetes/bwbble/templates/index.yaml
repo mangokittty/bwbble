@@ -1,4 +1,4 @@
-{{ if .Values.dataprep.enabled }}
+{{ if or ($.Values.dataprep.enabled) ($.Values.index.enabled) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -16,6 +16,7 @@ spec:
         app.kubernetes.io/managed-by: faaideen
     spec:
       restartPolicy: Never
+      {{ if $.Values.dataprep.enabled }}
       initContainers:
       - name: wait-for-comb-job
         image: bitnami/kubectl
@@ -24,6 +25,7 @@ spec:
         - "--for=condition=complete"
         - "job/{{ .Chart.Name }}-comb-{{ .Release.Name }}"
         - "--timeout=-1s"
+      {{ end }}
       containers:
         - name: index
           image: "{{ .Values.align.image.repository }}:{{ .Values.align.image.tag }}"
