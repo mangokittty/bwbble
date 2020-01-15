@@ -1,0 +1,44 @@
+{{ if .Values.dataprep.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-dataprep-{{.Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: dataprep
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: dataprep
+      labels:
+        app.kubernetes.io/managed-by: faaideen
+        bwbble-stage: dataprep
+        bwbble-version: "{{ .Chart.AppVersion }}"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: dataprep
+          image: "{{ .Values.ref.image.repository }}:{{ .Values.ref.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - data_prep
+            {{ range .Values.dataprep.snp_indel_files }}
+            - "/input/{{ . }}"
+            {{ end }}
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}

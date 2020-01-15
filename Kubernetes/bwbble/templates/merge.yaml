@@ -1,0 +1,53 @@
+{{ if .Values.align.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-merge-{{ .Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: merge
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: merge
+      labels: 
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-align-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job"
+        - "-l"
+        - "bwbble-job={{ .Release.Name }}"
+        - "-l"
+        - "bwbble-stage=align"
+        - "--timeout=-1s"
+      containers:
+        - name: merge
+          image: busybox
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - "sh"
+            - "-c"
+            - "cat {{ range .Values.align.reads.ranges }} /mg-align-output/{{ $.Release.Name }}.aligned_reads.{{ .start }}.aln {{ end }} > /mg-align-output/{{ .Release.Name }}.aligned_reads.aln"
+          volumeMounts:
+          - mountPath: /input
+            name: input
+          - mountPath: /mg-ref-output
+            name: ref-output
+          - mountPath: /mg-align-output
+            name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}

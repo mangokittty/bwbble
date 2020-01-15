@@ -1,0 +1,51 @@
+{{ if .Values.dataprep.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-comb-{{.Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: comb
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: comb
+      labels:
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-dataprep-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job/{{ .Chart.Name }}-dataprep-{{ .Release.Name }}"
+        - "--timeout=-1s"
+      containers:
+        - name: comb
+          image: "{{ .Values.ref.image.repository }}:{{ .Values.ref.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - comb
+            - "/input/{{ .Values.dataprep.ref_genome }}"
+            - "/mg-ref-output/{{ .Values.dataprep.snp_file }}"
+            - "/mg-ref-output/{{ .Values.dataprep.snp_bubble_file }}"
+            - "/mg-ref-output/{{ .Values.dataprep.bubble_file }}"
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}

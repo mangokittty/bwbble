@@ -1,0 +1,61 @@
+{{ if .Values.align.enabled }}
+{{ range .Values.align.reads.ranges }}
+---
+# align for range {{ .start }}..{{ .length }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ $.Chart.Name }}-align-{{ $.Release.Name }}-range-{{ .start }}-{{ .length }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: align
+    bwbble-job: "{{ $.Release.Name }}"
+    bwbble-version: "{{ $.Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: align
+      labels:
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      {{ if $.Values.dataprep.enabled }}
+      initContainers:
+      - name: wait-for-index-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job/{{ $.Chart.Name }}-index-{{ $.Release.Name }}"
+        - "--timeout=-1s"
+      {{ end }}
+      containers:
+        - name: align
+          image: "{{ $.Values.align.image.repository }}:{{ $.Values.align.image.tag }}"
+          imagePullPolicy: "{{ $.Values.image.pullPolicy }}"
+          args:
+            - align
+            - "-s"
+            - "{{ .start }}"
+            - "-p"
+            - "{{ .length }}"
+            - "/mg-ref-output/{{ $.Values.dataprep.snp_file }}"
+            - "/input/{{ $.Values.align.reads.file }}"
+            - "/mg-align-output/{{ $.Release.Name }}.aligned_reads.{{ .start }}.aln"
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml $.Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml $.Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml $.Values.volumes.alignoutput | indent 10 }}
+{{ end }}
+{{ end }}

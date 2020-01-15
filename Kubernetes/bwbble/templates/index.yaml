@@ -1,0 +1,48 @@
+{{ if .Values.dataprep.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-index-{{ .Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: index
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: index
+      labels:
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-comb-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job/{{ .Chart.Name }}-comb-{{ .Release.Name }}"
+        - "--timeout=-1s"
+      containers:
+        - name: index
+          image: "{{ .Values.align.image.repository }}:{{ .Values.align.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - index
+            - "/mg-ref-output/{{ .Values.dataprep.snp_file }}"
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}

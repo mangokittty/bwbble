@@ -1,0 +1,50 @@
+{{ if .Values.align.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-sampad-{{.Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: sam_pad
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: sampad
+      labels:
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-aln2sam-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job/{{ .Chart.Name }}-aln2sam-{{ .Release.Name }}"
+        - "--timeout=-1s"
+      containers:
+        - name: sampad
+          image: "{{ .Values.ref.image.repository }}:{{ .Values.ref.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - sam_pad
+            - "/mg-ref-output/{{ .Values.align.bubble_file }}"
+            - "/mg-align-output/{{ .Release.Name }}.aligned_reads.sam"
+            - "/mg-align-output/{{ .Values.align.output }}"
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}

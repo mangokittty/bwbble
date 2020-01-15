@@ -1,0 +1,51 @@
+{{ if .Values.align.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Chart.Name }}-aln2sam-{{ .Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: aln2sam
+    bwbble-version: "{{ .Chart.AppVersion }}"
+spec:
+  completions: 1
+  template:
+    metadata:
+      name: aln2sam
+      labels: 
+        app.kubernetes.io/managed-by: faaideen
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-for-merge-job
+        image: bitnami/kubectl
+        args:
+        - "wait"
+        - "--for=condition=complete"
+        - "job/{{ .Chart.Name }}-merge-{{ .Release.Name }}"
+        - "--timeout=-1s"
+      containers:
+        - name: aln2sam
+          image: "{{ .Values.align.image.repository }}:{{ .Values.align.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          args:
+            - aln2sam
+            - "/mg-ref-output/{{ .Values.align.snp_file }}"
+            - "/input/{{ .Values.align.reads.file }}"
+            - "/mg-align-output/{{ .Release.Name }}.aligned_reads.aln"
+            - "/mg-align-output/{{ .Release.Name }}.aligned_reads.sam"
+          volumeMounts:
+            - mountPath: /input
+              name: input
+            - mountPath: /mg-ref-output
+              name: ref-output
+            - mountPath: /mg-align-output
+              name: align-output
+      volumes:
+        - name: input
+{{ toYaml .Values.volumes.input | indent 10 }}
+        - name: ref-output
+{{ toYaml .Values.volumes.refoutput | indent 10 }}
+        - name: align-output
+{{ toYaml .Values.volumes.alignoutput | indent 10 }}
+{{ end }}
