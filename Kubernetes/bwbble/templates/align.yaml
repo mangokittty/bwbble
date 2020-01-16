@@ -18,6 +18,8 @@ spec:
       name: align
       labels:
         app.kubernetes.io/managed-by: faaideen
+        bwbble-stage: align
+        bwbble-job: "{{ $.Release.Name }}"
     spec:
       restartPolicy: Never
       {{ if or ($.Values.dataprep.enabled) ($.Values.index.enabled) }}

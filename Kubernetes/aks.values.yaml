@@ -25,12 +25,18 @@ align:
   output: output.sam
 
   reads:
-    file: dummy_reads.fastq
+    file: dummy_reads_large.fastq
     ranges:
       - start: 0
-        length: 50
-      - start: 50
-        length: 50
+        length: 128000
+      - start: 128000
+        length: 128000
+      - start: 256000
+        length: 128000
+      - start: 384000
+        length: 128000
+      # - start: 50
+      #   length: 50
 
 ref:
   vcf:
@@ -40,17 +46,17 @@ ref:
 
 volumes:
   input:
-    azureFile: 
+    azureFile:
       secretName: azure-secret
       shareName: input
       readonly: false
   refoutput:
-    azureFile: 
+    azureFile:
       secretName: azure-secret
       shareName: ref-output
       readonly: false
   alignoutput:
-    azureFile: 
+    azureFile:
       secretName: azure-secret
       shareName: align-output
       readonly: false
