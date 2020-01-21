@@ -1,0 +1,68 @@
+---
+apiVersion: bwbble/v1
+kind: DataPrep
+metadata:
+  name: test1
+spec:
+  ref_genome: human_g1k_v37.fasta
+  snp_indel_files:
+    - ALL.chr21.phase1_release_v3.20101123.snps_indels_svs.genotypes.vcf
+
+  # These files are the output of the data preparation phase
+  # When dataprep is enabled use ref_w_snp.fasta for snp_file
+  snp_file: chr21.fa
+  bubble_file: bubble.data
+  snp_bubble_file: ref_w_snp_and_bubble.fasta
+
+  volumes:
+    input:
+      azureFile:
+        secretName: azure-secret
+        shareName: input
+        readonly: false
+    refoutput:
+      azureFile:
+        secretName: azure-secret
+        shareName: ref-output
+        readonly: false
+    alignoutput:
+      azureFile:
+        secretName: azure-secret
+        shareName: align-output
+        readonly: false
+---
+apiVersion: bwbble/v1
+kind: Align
+metadata:
+  name: test1
+spec:
+  wait_upon:
+    apiVersion: bwbble/v1alpha1
+    kind: DataPrepJob
+    name: test1
+
+  snp_file: chr21.fa
+  bubble_file: bubble.data
+
+  output: output.sam
+
+  reads:
+    file: dummy_reads_large.fastq
+    parallelism: 8
+
+  volumes:
+    input:
+      azureFile:
+        secretName: azure-secret
+        shareName: input
+        readonly: false
+    refoutput:
+      azureFile:
+        secretName: azure-secret
+        shareName: ref-output
+        readonly: false
+    alignoutput:
+      azureFile:
+        secretName: azure-secret
+        shareName: align-output
+        readonly: false
