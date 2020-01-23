@@ -14,6 +14,9 @@ spec:
       name: index
       labels:
         app.kubernetes.io/managed-by: faaideen
+        app.kubernetes.io/managed-by: faaideen
+        bwbble-stage: index
+        bwbble-version: "{{ .Chart.AppVersion }}"
     spec:
       restartPolicy: Never
       {{ if $.Values.dataprep.enabled }}
@@ -33,6 +36,13 @@ spec:
           args:
             - index
             - "/mg-ref-output/{{ .Values.dataprep.snp_file }}"
+          resources:
+            requests:
+              memory: "50Gi"
+              cpu: 8
+            limits:
+              memory: "64Gi"
+              cpu: 8
           volumeMounts:
             - mountPath: /input
               name: input
