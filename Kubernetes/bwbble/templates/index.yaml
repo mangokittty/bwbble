@@ -50,6 +50,13 @@ spec:
               name: ref-output
             - mountPath: /mg-align-output
               name: align-output
+          resources:
+            requests:
+              memory: "40Gi"
+              cpu: 1
+            limits:
+              memory: "64Gi"
+              cpu: 4
       volumes:
         - name: input
 {{ toYaml .Values.volumes.input | indent 10 }}

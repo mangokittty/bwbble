@@ -1,4 +1,16 @@
 {{ if .Values.dataprep.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ .Chart.Name }}-comb-{{.Release.Name }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: comb
+    bwbble-job: "{{ $.Release.Name }}"
+    bwbble-version: "{{ $.Chart.AppVersion }}"
+data:
+  container_args: "'/input/{{ .Values.dataprep.ref_genome }}' '/mg-ref-output/{{ .Values.dataprep.snp_file }}' '/mg-ref-output/{{ .Values.dataprep.snp_bubble_file }}' '/mg-ref-output/{{ .Values.dataprep.bubble_file }}'"
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -28,13 +40,21 @@ spec:
         - name: comb
           image: "{{ .Values.ref.image.repository }}:{{ .Values.ref.image.tag }}"
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
-          args:
-            - comb
-            - "/input/{{ .Values.dataprep.ref_genome }}"
-            - "/mg-ref-output/{{ .Values.dataprep.snp_file }}"
-            - "/mg-ref-output/{{ .Values.dataprep.snp_bubble_file }}"
-            - "/mg-ref-output/{{ .Values.dataprep.bubble_file }}"
+          env:
+            - name: APPLICATION
+              value: comb
+            - name: ARGS_FILE
+              value: /var/run/args/container_args
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: 1
+            limits:
+              memory: "32Gi"
+              cpu: 4
           volumeMounts:
+            - mountPath: /var/run/args
+              name: args
             - mountPath: /input
               name: input
             - mountPath: /mg-ref-output
@@ -42,6 +62,9 @@ spec:
             - mountPath: /mg-align-output
               name: align-output
       volumes:
+        - name: args
+          configMap:
+            name: "{{ .Chart.Name }}-comb-{{.Release.Name }}"
         - name: input
 {{ toYaml .Values.volumes.input | indent 10 }}
         - name: ref-output

@@ -1,6 +1,18 @@
 {{ if .Values.align.enabled }}
 {{ range .Values.align.reads.ranges }}
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ $.Chart.Name }}-align-{{ $.Release.Name }}-range-{{ .start }}-{{ .length }}"
+  labels:
+    app.kubernetes.io/managed-by: faaideen
+    bwbble-stage: align
+    bwbble-job: "{{ $.Release.Name }}"
+    bwbble-version: "{{ $.Chart.AppVersion }}"
+data:
+  container_args: "align -s {{ .start }} -p {{ .length }} '/mg-ref-output/{{ $.Values.dataprep.snp_file }}' '/input/{{ $.Values.align.reads.file }}' '/mg-align-output/{{ $.Release.Name }}.aligned_reads.{{ .start }}.aln'"
+---
 # align for range {{ .start }}..{{ .length }}
 apiVersion: batch/v1
 kind: Job
@@ -36,16 +48,19 @@ spec:
         - name: align
           image: "{{ $.Values.align.image.repository }}:{{ $.Values.align.image.tag }}"
           imagePullPolicy: "{{ $.Values.image.pullPolicy }}"
-          args:
-            - align
-            - "-s"
-            - "{{ .start }}"
-            - "-p"
-            - "{{ .length }}"
-            - "/mg-ref-output/{{ $.Values.dataprep.snp_file }}"
-            - "/input/{{ $.Values.align.reads.file }}"
-            - "/mg-align-output/{{ $.Release.Name }}.aligned_reads.{{ .start }}.aln"
+          env:
+            - name: ARGS_FILE
+              value: /var/run/args/container_args
+          resources:
+            requests:
+              memory: "1.5Gi"
+              cpu: 0.5
+            limits:
+              memory: "4Gi"
+              cpu: 1
           volumeMounts:
+            - mountPath: /var/run/args
+              name: args
             - mountPath: /input
               name: input
             - mountPath: /mg-ref-output
@@ -53,6 +68,9 @@ spec:
             - mountPath: /mg-align-output
               name: align-output
       volumes:
+        - name: args
+          configMap:
+            name: "{{ $.Chart.Name }}-align-{{ $.Release.Name }}-range-{{ .start }}-{{ .length }}"
         - name: input
 {{ toYaml $.Values.volumes.input | indent 10 }}
         - name: ref-output
