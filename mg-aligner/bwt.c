@@ -1,4 +1,4 @@
-01 //------------------------------------------------------
+//------------------------------------------------------
 // BWT Indexing
 // Victoria Popic (viq@stanford.edu), 2012
 //-------------------------------------------------------
@@ -15,8 +15,7 @@
 #include "bwt.h"
 #include "io.h"
 
-	void
-	compute_C(bwt_t *BWT, const unsigned char *seqIUPAC);
+void compute_C(bwt_t *BWT, const unsigned char *seqIUPAC);
 void compute_O(bwt_t *BWT);
 void compute_SA(bwt_t *BWT);
 void generate_occ_table(bwt_t *BWT);
