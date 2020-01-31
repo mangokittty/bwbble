@@ -45,7 +45,7 @@ reads_file = "dummy_reads.fastq"
 snp_file = "chr21_ref_w_snp.fasta"
 
 
-def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: list, use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: list = None, name_suffix: str = ""):
+def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = ""):
     labels = {
         "app.kubernetes.io/managed-by": "faaideen",
         "bwbble-stage": stage,
@@ -323,8 +323,9 @@ def kube_test_credentials():
 
 def main():
     kube_test_credentials()
-    print("Done testing credentials")
-    run_align("bwbble-dev", "test0")
+    print("**** Done testing credentials ****")
+    time_stamp = time.strftime("%H:%M:%S", time.localtime())
+    run_align("bwbble-dev", "test-"+time_stamp)
 
 
 if __name__ == '__main__':
