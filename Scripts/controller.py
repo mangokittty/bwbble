@@ -324,7 +324,7 @@ def kube_test_credentials():
 def main():
     kube_test_credentials()
     print("**** Done testing credentials ****")
-    time_stamp = time.strftime("%H:%M:%S", time.localtime())
+    time_stamp = time.strftime("%H-%M-%S", time.localtime())
     run_align("bwbble-dev", "test-"+time_stamp)
 
 
