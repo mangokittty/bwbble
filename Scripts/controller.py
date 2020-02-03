@@ -4,7 +4,7 @@ import string
 import random
 import logging
 import yaml
-import pprint
+from pprint import pprint
 import sys
 import os
 import time
@@ -20,8 +20,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 # Setup K8 configs
 config.load_kube_config()
 configuration = kubernetes.client.Configuration()
-api_instance = kubernetes.client.BatchV1Api(
-    kubernetes.client.ApiClient(configuration))
+api_client = kubernetes.client.ApiClient(configuration)
+api_instance = kubernetes.client.BatchV1Api(api_client)
 
 
 class Range(object):
@@ -53,18 +53,22 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
 
     resources = resources or client.V1ResourceRequirements(
         limits={
-            "memory": 0,
-            "cpu": 1
+            "memory": "0",
+            "cpu": "1"
         },
         requests={
-            "memory": 0,
-            "cpu": 1
-        })
+            "memory": "0",
+            "cpu": "1"
 
-    resources = []
+        })
+    created_resources = []
+    env_array = []
 
     if use_config_map_args:
-        resources.append(kubernetes.client.CoreV1Api(kubernetes.client.ApiClient()).create_namespaced_config_map(namespace, kubernetes.client.V1ConfigMap(
+        env_array.append(client.V1EnvVar(
+            name="ARGS_FILE", value="/var/run/args/container_args"))
+
+        created_resources.append(kubernetes.client.CoreV1Api(api_client).create_namespaced_config_map(namespace, kubernetes.client.V1ConfigMap(
             api_version="v1",
             kind="ConfigMap",
             metadata=client.V1ObjectMeta(
@@ -74,6 +78,9 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
                 "args": " ".join([f"'{a}'" if " " in a else a for a in args]),
             }
         )))
+
+    if env is not None:
+        env_array.extend(env)
 
     job_spec = client.V1Job(
         api_version="batch/v1",
@@ -85,16 +92,14 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
                 name=stage,
                 labels=labels
             ), spec=client.V1PodSpec(
+                restart_policy="Never",
                 containers=[
                     client.V1Container(
                         name=stage,
                         image=container_image,
                         image_pull_policy="IfNotPresent",
                         args=args,
-                        env=[
-                            client.V1EnvVar(
-                                name="ARGS_FILE", value="/var/run/args/container_args")
-                            .extend(env) if env is not None else None],
+                        env=env_array,
                         resources=resources,
                         volume_mounts=[
                             client.V1VolumeMount(
@@ -141,10 +146,10 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
             name="args"
         ))
 
-    resources.append(kubernetes.client.BatchV1Api(
-        kubernetes.client.ApiClient()).create_namespaced_job(namespace, job_spec))
+    created_resources.append(kubernetes.client.BatchV1Api(
+        api_client).create_namespaced_job(namespace, job_spec))
 
-    return resources
+    return created_resources
 
 
 def wait_for_all_jobs(namespace: str, release: str, stage: str, resources: List[kubernetes.client.V1Job]):
@@ -153,7 +158,7 @@ def wait_for_all_jobs(namespace: str, release: str, stage: str, resources: List[
     pending_jobs = set([r.metadata.name for r in resources])
 
     for event in watcher.stream(
-            kubernetes.client.BatchV1Api.list_namespaced_job, namespace, label_selector=f"bwbble-release={release},bwbble-stage={stage}"):
+            kubernetes.client.BatchV1Api(api_client).list_namespaced_job, namespace, label_selector=f"bwbble-release={release},bwbble-stage={stage}"):
 
         if event['object'].state.completion_time:
             pending_jobs.remove(event['object'].metadata.name)
@@ -195,11 +200,11 @@ def run_index(namespace: str, release: str):
     api_responses = create_job_resources(namespace, release, "index", "bwbble/mg-aligner:latest", resources=client.V1ResourceRequirements(
         limits={
             "memory": "64Gi",
-            "cpu": 1
+            "cpu": "1"
         },
         requests={
             "memory": "1Gi",
-            "cpu": 1
+            "cpu": "1"
         }))
 
     for resource in api_responses:
