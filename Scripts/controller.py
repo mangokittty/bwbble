@@ -41,7 +41,7 @@ file_ranges = [
     Range(0)
 ]
 
-bwbble_container_image_version = "306"
+bwbble_container_image_version = "313"
 
 reads_file = "dummy_reads.fastq"
 bubble_file = "chr21_bubble.data"
@@ -149,7 +149,6 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
             )
         )
     )
-    print(job_spec)
 
     if use_config_map_args:
 
@@ -190,7 +189,7 @@ def wait_for_all_jobs(namespace: str, release: str, stage: str, resources: List[
 def run_data_prep(namespace: str, release: str):
     # Do the dataprep job
     api_responses = create_job_resources(
-        namespace, release, "data-prep", f"bwbble/mg-ref{bwbble_container_image_version}")
+        namespace, release, "data-prep", f"bwbble/mg-ref:{bwbble_container_image_version}")
 
     # Wait for the data-prep job to complete
     wait_for_all_jobs(namespace, release, "data-prep",
@@ -199,7 +198,7 @@ def run_data_prep(namespace: str, release: str):
 
     # Do the combine job
     api_responses = create_job_resources(
-        namespace, release, "comb", f"bwbble/mg-ref{bwbble_container_image_version}")
+        namespace, release, "comb", f"bwbble/mg-ref:{bwbble_container_image_version}")
 
     # Wait for the data-prep job to complete
     wait_for_all_jobs(
@@ -210,8 +209,8 @@ def run_data_prep(namespace: str, release: str):
 
 
 def run_index(namespace: str, release: str):
-    api_responses = create_job_resources(namespace, release, "index", f"bwbble/mg-aligner{bwbble_container_image_version}", args=["index",
-                                                                                                                                  f"/mg-ref-output/{snp_file}"], resources=client.V1ResourceRequirements(
+    api_responses = create_job_resources(namespace, release, "index", f"bwbble/mg-aligner:{bwbble_container_image_version}", args=["index",
+                                                                                                                                   f"/mg-ref-output/{snp_file}"], resources=client.V1ResourceRequirements(
         limits={
             "memory": "2Gi",
             "cpu": "1"
@@ -231,7 +230,7 @@ def run_align(namespace: str, release: str):
     alignment_jobs = []
 
     for range in file_ranges:
-        api_responses = create_job_resources(namespace, release, "align", f"bwbble/mg-aligner{bwbble_container_image_version}",
+        api_responses = create_job_resources(namespace, release, "align", f"bwbble/mg-aligner:{bwbble_container_image_version}",
                                              args=[
                                                  "align",
                                                  "-s",
@@ -283,7 +282,7 @@ def run_merge(namespace: str, release: str):
 
 
 def run_aln2sam(namespace: str, release: str):
-    api_responses = create_job_resources(namespace, release, "aln2sam", f"bwbble/mg-aligner{bwbble_container_image_version}", args=[
+    api_responses = create_job_resources(namespace, release, "aln2sam", f"bwbble/mg-aligner:{bwbble_container_image_version}", args=[
         "aln2sam",
         f"/mg-ref-output/{snp_file }",
         f"/input/{reads_file}",
@@ -299,13 +298,13 @@ def run_aln2sam(namespace: str, release: str):
 
 
 def run_sam_pad(namespace: str, release: str):
-    api_responses = create_job_resources(namespace, release, "sam-pad", f"bwbble/mg-ref{bwbble_container_image_version}", args=[
+    api_responses = create_job_resources(namespace, release, "sam-pad", f"bwbble/mg-ref:{bwbble_container_image_version}", args=[
         f"/mg-ref-output/{bubble_file}",
         f"/mg-align-output/{release}.aligned_reads.sam",
         f"/mg-align-output/{release}.output.sam"
     ],
         env=[
-        kubernetes.client.V1EnvVar(name="APPLICATION", value="sampad"),
+        kubernetes.client.V1EnvVar(name="APPLICATION", value="sam_pad"),
     ])
 
     # Wait for the sam_pad job to complete
