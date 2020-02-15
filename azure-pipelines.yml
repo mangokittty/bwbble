@@ -30,6 +30,7 @@ stages:
         containerRegistry: dockerHubBwbble
         tags: |
           $(tag)
+          latest
   - job: BuildAligner
     displayName: Build Aligner
     pool:
@@ -45,3 +46,4 @@ stages:
         repository: bwbble/mg-aligner
         tags: |
           $(tag)
+          latest
