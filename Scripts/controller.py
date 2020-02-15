@@ -41,13 +41,17 @@ file_ranges = [
     Range(0)
 ]
 
+bwbble_container_image_version = "306"
+
 reads_file = "dummy_reads.fastq"
-snp_file = "chr21_ref_w_snp.fasta"
+bubble_file = "chr21_bubble.data"
+snp_file = "chr21_ref_w_snp_and_bubble.fasta"
 
 
 def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = ""):
     labels = {
         "app.kubernetes.io/managed-by": "faaideen",
+        "bwbble-release": release,
         "bwbble-stage": stage,
     }
 
@@ -75,7 +79,7 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
                 name=f"bwbble-{release}-{stage}{name_suffix}", labels=labels
             ),
             data={
-                "args": " ".join([f"'{a}'" if " " in a else a for a in args]),
+                "container_args": " ".join([f"'{a}'" if " " in a else a for a in args]),
             }
         )))
 
@@ -118,13 +122,28 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
                 ],
                 volumes=[
                     client.V1Volume(
-                        name="input"
+                        name="input",
+                        azure_file=client.V1AzureFileVolumeSource(
+                            secret_name="azure-secret",
+                            share_name="input",
+                            read_only=True
+                        )
                     ),
                     client.V1Volume(
                         name="ref-output",
+                        azure_file=client.V1AzureFileVolumeSource(
+                            secret_name="azure-secret",
+                            share_name="ref-output",
+                            read_only=False
+                        )
                     ),
                     client.V1Volume(
                         name="align-output",
+                        azure_file=client.V1AzureFileVolumeSource(
+                            secret_name="azure-secret",
+                            share_name="align-output",
+                            read_only=False
+                        )
                     )
                 ])
             )
@@ -160,7 +179,7 @@ def wait_for_all_jobs(namespace: str, release: str, stage: str, resources: List[
     for event in watcher.stream(
             kubernetes.client.BatchV1Api(api_client).list_namespaced_job, namespace, label_selector=f"bwbble-release={release},bwbble-stage={stage}"):
 
-        if event['object'].state.completion_time:
+        if event['object'].status.completion_time:
             pending_jobs.remove(event['object'].metadata.name)
 
             if len(pending_jobs) == 0:
@@ -171,10 +190,7 @@ def wait_for_all_jobs(namespace: str, release: str, stage: str, resources: List[
 def run_data_prep(namespace: str, release: str):
     # Do the dataprep job
     api_responses = create_job_resources(
-        namespace, release, "data-prep", "bwbble/mg-ref:latest")
-
-    for resource in api_responses:
-        pprint(resource)
+        namespace, release, "data-prep", f"bwbble/mg-ref{bwbble_container_image_version}")
 
     # Wait for the data-prep job to complete
     wait_for_all_jobs(namespace, release, "data-prep",
@@ -183,10 +199,7 @@ def run_data_prep(namespace: str, release: str):
 
     # Do the combine job
     api_responses = create_job_resources(
-        namespace, release, "comb", "bwbble/mg-ref:latest")
-
-    for resource in api_responses:
-        pprint(resource)
+        namespace, release, "comb", f"bwbble/mg-ref{bwbble_container_image_version}")
 
     # Wait for the data-prep job to complete
     wait_for_all_jobs(
@@ -197,18 +210,16 @@ def run_data_prep(namespace: str, release: str):
 
 
 def run_index(namespace: str, release: str):
-    api_responses = create_job_resources(namespace, release, "index", "bwbble/mg-aligner:latest", resources=client.V1ResourceRequirements(
+    api_responses = create_job_resources(namespace, release, "index", f"bwbble/mg-aligner{bwbble_container_image_version}", args=["index",
+                                                                                                                                  f"/mg-ref-output/{snp_file}"], resources=client.V1ResourceRequirements(
         limits={
-            "memory": "64Gi",
+            "memory": "2Gi",
             "cpu": "1"
         },
         requests={
-            "memory": "1Gi",
+            "memory": "500Mi",
             "cpu": "1"
         }))
-
-    for resource in api_responses:
-        pprint(resource)
 
     # Wait for the index job to complete
     wait_for_all_jobs(namespace, release, "index", [
@@ -220,7 +231,7 @@ def run_align(namespace: str, release: str):
     alignment_jobs = []
 
     for range in file_ranges:
-        api_responses = create_job_resources(namespace, release, "align", "bwbble/mg-aligner:latest",
+        api_responses = create_job_resources(namespace, release, "align", f"bwbble/mg-aligner{bwbble_container_image_version}",
                                              args=[
                                                  "align",
                                                  "-s",
@@ -231,9 +242,6 @@ def run_align(namespace: str, release: str):
                                                  f"/input/{reads_file}",
                                                  f"/mg-align-output/{release}.aligned_reads.{range.name}.aln"
                                              ], name_suffix=f"-{range.name}")
-
-        for resource in api_responses:
-            pprint(resource)
 
         alignment_jobs.extend([
             r for r in api_responses if isinstance(r, kubernetes.client.V1Job)
@@ -269,26 +277,20 @@ def run_merge(namespace: str, release: str):
                                                  [f"'{p}'" if " " in p else p for p in merge_command])
                                          ])
 
-    for resource in api_responses:
-        pprint(resource)
-
     # Wait for the merge job to complete
     wait_for_all_jobs(namespace, release, "merge", api_responses)
     print("All Jobs completed for merge phase")
 
 
 def run_aln2sam(namespace: str, release: str):
-    api_responses = create_job_resources(namespace, release, "aln2sam", "bwbble/mg-aligner:latest", args=[
+    api_responses = create_job_resources(namespace, release, "aln2sam", f"bwbble/mg-aligner{bwbble_container_image_version}", args=[
         "aln2sam",
         f"/mg-ref-output/{snp_file }",
         f"/input/{reads_file}",
-        f"/mg-align-output/{release}.aligned_reads.{range.name}.aln",
-        f"/mg-align-output/{release}.aligned_reads.{range.name}.sam"
+        f"/mg-align-output/{release}.aligned_reads.aln",
+        f"/mg-align-output/{release}.aligned_reads.sam"
 
     ])
-
-    for resource in api_responses:
-        pprint(resource)
 
     # Wait for the aln2sam job to complete
     wait_for_all_jobs(namespace, release, "aln2sam", [
@@ -296,19 +298,15 @@ def run_aln2sam(namespace: str, release: str):
     print("**** All Jobs completed for aln2sam phase of mg-aligner ****")
 
 
-def run_sam_pad(namespace: str, release: str, bubble_file: str, sam_file: str, output_file: str):
-    api_responses = create_job_resources(namespace, release, "sam-pad", "bwbble/mg-ref:latest", args=[
-        "sampad",  # TODO: Remove this when you've built the new images which support using entrypoint.sh
+def run_sam_pad(namespace: str, release: str):
+    api_responses = create_job_resources(namespace, release, "sam-pad", f"bwbble/mg-ref{bwbble_container_image_version}", args=[
         f"/mg-ref-output/{bubble_file}",
-        f"/mg-align-output/{sam_file}",
-        f"/mg-align-output/{output_file}"
+        f"/mg-align-output/{release}.aligned_reads.sam",
+        f"/mg-align-output/{release}.output.sam"
     ],
         env=[
         kubernetes.client.V1EnvVar(name="APPLICATION", value="sampad"),
     ])
-
-    for resource in api_responses:
-        pprint(resource)
 
     # Wait for the sam_pad job to complete
     wait_for_all_jobs(namespace, release, "sam-pad",
@@ -330,6 +328,7 @@ def main():
     kube_test_credentials()
     print("**** Done testing credentials ****")
     time_stamp = time.strftime("%H-%M-%S", time.localtime())
+    #run_index("bwbble-dev", "test-"+time_stamp)
     run_align("bwbble-dev", "test-"+time_stamp)
 
 
