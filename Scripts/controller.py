@@ -38,7 +38,8 @@ class Range(object):
 
 # Configuration
 file_ranges = [
-    Range(0)
+    Range(0, 50),
+    Range(50)
 ]
 
 bwbble_container_image_version = "313"
@@ -48,7 +49,7 @@ bubble_file = "chr21_bubble.data"
 snp_file = "chr21_ref_w_snp_and_bubble.fasta"
 
 
-def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = ""):
+def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = "", use_aci: bool = True):
     labels = {
         "app.kubernetes.io/managed-by": "faaideen",
         "bwbble-release": release,
@@ -57,16 +58,20 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
 
     resources = resources or client.V1ResourceRequirements(
         limits={
-            "memory": "0",
+            "memory": "2Gi",
             "cpu": "1"
         },
         requests={
-            "memory": "0",
+            "memory": "2Gi",
             "cpu": "1"
 
         })
     created_resources = []
     env_array = []
+
+    if use_aci and not use_config_map_args:
+        raise Exception(
+            "Azure Container Instances require that arguments are passed using a file")
 
     if use_config_map_args:
         env_array.append(client.V1EnvVar(
@@ -149,6 +154,19 @@ def create_job_resources(namespace: str, release: str, stage: str, container_ima
             )
         )
     )
+
+    if use_aci:
+        job_spec.spec.template.spec.node_selector = {
+            "kubernetes.io/role": "agent",
+            "beta.kubernetes.io/os": "linux",
+            "type": "virtual-kubelet"
+        }
+
+        job_spec.spec.template.spec.tolerations = [
+            client.V1Toleration(
+                key="virtual-kubelet.io/provider", operator="Exists"),
+            client.V1Toleration(key="azure.com/aci", effect="NoSchedule"),
+        ]
 
     if use_config_map_args:
 
@@ -268,13 +286,22 @@ def run_merge(namespace: str, release: str):
         f"/mg-align-output/{release}.aligned_reads.aln"
     ]
 
-    api_responses = create_job_resources(namespace, release, "merge", "busybox:latest", use_config_map_args=False,
+    api_responses = create_job_resources(namespace, release, "merge", "busybox:latest", use_config_map_args=False, use_aci=False,
                                          args=[
                                              "sh",
                                              "-c",
                                              " ".join(
                                                  [f"'{p}'" if " " in p else p for p in merge_command])
-                                         ])
+                                         ], resources=client.V1ResourceRequirements(
+                                             limits={
+                                                 "memory": "128Mi",
+                                                 "cpu": "1"
+                                             },
+                                             requests={
+                                                 "memory": "128Mi",
+                                                 "cpu": "50m"
+
+                                             }))
 
     # Wait for the merge job to complete
     wait_for_all_jobs(namespace, release, "merge", api_responses)
