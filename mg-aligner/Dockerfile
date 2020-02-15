@@ -8,7 +8,7 @@ RUN make all
 
 FROM ubuntu:latest
 COPY --from=0 /src/bwbble /usr/bin/bwbble
-ADD entrypoint.sh /usr/bin/entrypoint.sh
+ADD entrypoint.sh /usr/bin/entrypoint
 
 RUN chmod +x /usr/bin/entrypoint
 RUN apt-get update && apt-get install -y libgomp1
