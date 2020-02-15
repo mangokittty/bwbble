@@ -12,6 +12,7 @@ COPY --from=0 /src/data_prep /usr/bin/data_prep
 COPY --from=0 /src/sam_pad /usr/bin/sam_pad
 ADD ./entrypoint.sh /usr/bin/entrypoint
 ADD ./help.sh /usr/bin/help
+RUN chmod +x /usr/bin/entrypoint /usr/bin/help
 
 RUN apt-get update && apt-get install -y libgomp1
 
