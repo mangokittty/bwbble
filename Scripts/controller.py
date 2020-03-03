@@ -234,7 +234,7 @@ def run_index(namespace: str, release: str):
             "cpu": "1"
         },
         requests={
-            "memory": "500Mi",
+            "memory": "2Gi",
             "cpu": "1"
         }))
 
@@ -354,7 +354,7 @@ def main():
     kube_test_credentials()
     print("**** Done testing credentials ****")
     time_stamp = time.strftime("%H-%M-%S", time.localtime())
-    #run_index("bwbble-dev", "test-"+time_stamp)
+    run_index("bwbble-dev", "test-"+time_stamp)
     run_align("bwbble-dev", "test-"+time_stamp)
 
 
