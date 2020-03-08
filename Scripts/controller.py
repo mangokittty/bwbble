@@ -9,10 +9,11 @@ import sys
 import os
 import time
 from typing import List
-
+import subprocess
 from kubernetes import client, config, utils
 import kubernetes.client
 from kubernetes.client.rest import ApiException
+from math import floor
 
 # Setup logging
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -35,18 +36,34 @@ class Range(object):
             return f"{self.start}-end"
         return f"{self.start}-{self.start+self.length}"
 
+    @staticmethod
+    def generate(num_reads: int, parallelism: int = 1):
+        rrange = floor(num_reads/parallelism)
+        ranges = []
+        for i in range(0, parallelism):
+            ranges.append(Range(i * rrange, rrange))
+
+        ranges[len(ranges)-1].length = -1
+
+        return ranges
+
 
 # Configuration
-file_ranges = [
-    Range(0, 50),
-    Range(50)
-]
+file_ranges = Range.generate(512000, 2)
 
 bwbble_container_image_version = "313"
 
 reads_file = "dummy_reads.fastq"
 bubble_file = "chr21_bubble.data"
 snp_file = "chr21_ref_w_snp_and_bubble.fasta"
+
+
+def create_file_ranges(file):
+    cmd = "wc"
+    args = "-l"
+    temp = subprocess.Popen([cmd, args, file], stdout=subprocess.PIPE)
+    line_count = str(temp.communicate())
+    print(line_count)
 
 
 def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = "", use_aci: bool = True):
