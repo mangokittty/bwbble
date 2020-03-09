@@ -13,16 +13,10 @@ import subprocess
 from kubernetes import client, config, utils
 import kubernetes.client
 from kubernetes.client.rest import ApiException
+from kubernetes.client.rest import ApiException
+import re
+from datetime import timedelta
 from math import floor
-
-# Setup logging
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
-# Setup K8 configs
-config.load_kube_config()
-configuration = kubernetes.client.Configuration()
-api_client = kubernetes.client.ApiClient(configuration)
-api_instance = kubernetes.client.BatchV1Api(api_client)
 
 
 class Range(object):
@@ -49,21 +43,59 @@ class Range(object):
 
 
 # Configuration
-file_ranges = Range.generate(512000, 2)
-
 bwbble_container_image_version = "313"
-
 reads_file = "dummy_reads.fastq"
 bubble_file = "chr21_bubble.data"
 snp_file = "chr21_ref_w_snp_and_bubble.fasta"
+parallelism = 18
+reads = 512000
+file_ranges = Range.generate(reads, parallelism)
 
 
-def create_file_ranges(file):
-    cmd = "wc"
-    args = "-l"
-    temp = subprocess.Popen([cmd, args, file], stdout=subprocess.PIPE)
-    line_count = str(temp.communicate())
-    print(line_count)
+# Setup logging
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+# Setup K8 configs
+config.load_kube_config()
+configuration = kubernetes.client.Configuration()
+api_client = kubernetes.client.ApiClient(configuration)
+api_instance = kubernetes.client.BatchV1Api(api_client)
+
+
+def execution_times(namespace: str, release: str, stage: str, align_logs: bool = False):
+    # config.load_kube_config()
+    # pod_name = "bwbble-align-dummylargereads1-range-0--1-799ms"
+    try:
+        if align_logs:
+            # get execution time for pods
+            api_response = kubernetes.client.CoreV1Api(api_client).list_namespaced_pod(
+                namespace=namespace, label_selector=f"bwbble-release={release},bwbble-stage={stage}")
+            for item in api_response.items:
+                logs = kubernetes.client.CoreV1Api(api_client).read_namespaced_pod_log(
+                    item.metadata.name, namespace, container='align', tail_lines=100)
+                with open(f"{namespace}-{item.metadata.name}.log", "w+") as f:
+                    if logs:
+                        f.write(logs)
+                        f.close()
+                        rem = re.search(
+                            r"read alignment time: (\d+\.?\d*) sec", logs, re.IGNORECASE)
+
+                        if rem:
+                            print(item.metadata.name, " (logs): ",
+                                  timedelta(seconds=float(rem[1]))
+                                  )
+        # get execution time for pods
+        api_response = api_instance.list_namespaced_job(
+            namespace=namespace, label_selector=f"bwbble-release={release},bwbble-stage={stage}")
+        for item in api_response.items:
+            if item.status.completion_time:
+                print(item.metadata.name, " (job): ",
+                      item.status.completion_time - item.status.start_time)
+            else:
+                print(item.metadata.name, " (job): Not yet finished")
+
+    except ApiException as e:
+        print(e)
 
 
 def create_job_resources(namespace: str, release: str, stage: str, container_image: str, args: List[str], use_config_map_args: bool = True, resources: client.V1ResourceRequirements = None, env: List[client.V1EnvVar] = None, name_suffix: str = "", use_aci: bool = True):
@@ -361,7 +393,6 @@ def kube_test_credentials():
 
     try:
         api_response = api_instance.get_api_resources()
-        logging.info(api_response)
     except ApiException as e:
         print("Exception when calling API: %s\n" % e)
         sys.exit(0)
@@ -370,9 +401,16 @@ def kube_test_credentials():
 def main():
     kube_test_credentials()
     print("**** Done testing credentials ****")
-    time_stamp = time.strftime("%H-%M-%S", time.localtime())
-    run_index("bwbble-dev", "test-"+time_stamp)
-    run_align("bwbble-dev", "test-"+time_stamp)
+    time_stamp = time.strftime("%H-%M", time.localtime())
+
+    release = f"test-t{time_stamp}-p{parallelism}-fshort"
+
+    # run_index("bwbble-dev", "test-"+time_stamp)
+    run_align("bwbble-dev", release)
+    execution_times("bwbble-dev", release, "align", align_logs=True)
+    execution_times("bwbble-dev", release, "merge")
+    execution_times("bwbble-dev", release, "aln2sam")
+    execution_times("bwbble-dev", release, "sam-pad")
 
 
 if __name__ == '__main__':

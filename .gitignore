@@ -3,8 +3,9 @@
 *.ref
 *.sam
 *.aln
-
+*.log
 *.o
+*.txt
 bwbble
 comb
 data_prep
