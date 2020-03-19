@@ -44,10 +44,10 @@ class Range(object):
 
 # Configuration
 bwbble_container_image_version = "313"
-reads_file = "dummy_reads.fastq"
+reads_file = "dummy_reads_large.fastq"
 bubble_file = "chr21_bubble.data"
 snp_file = "chr21_ref_w_snp_and_bubble.fasta"
-parallelism = 18
+parallelism = 1
 reads = 512000
 file_ranges = Range.generate(reads, parallelism)
 
@@ -403,7 +403,7 @@ def main():
     print("**** Done testing credentials ****")
     time_stamp = time.strftime("%H-%M", time.localtime())
 
-    release = f"test-t{time_stamp}-p{parallelism}-fshort"
+    release = f"test-t{time_stamp}-p{parallelism}-flarge"
 
     # run_index("bwbble-dev", "test-"+time_stamp)
     run_align("bwbble-dev", release)

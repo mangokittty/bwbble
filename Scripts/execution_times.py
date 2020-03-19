@@ -9,7 +9,7 @@ def main():
     config.load_kube_config()
     pod_name = "bwbble-align-dummylargereads1-range-0--1-799ms"
     try:
-        api_instance = client.CoreV1Api()  # use different client for real-time?
+        api_instance = client.CoreV1Api()
         api_response = api_instance.list_namespaced_pod(
             namespace='bwbble-dev', label_selector="bwbble-stage=align")
         for item in api_response.items:
