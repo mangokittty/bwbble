@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bwbble-controller
+  namespace: bwbble-dev
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: bwbble-dev
+  name: bwbble-controller
+rules:
+  - apiGroups: ["bwbble.aideen.dev"]
+    resources: ["alignjobs"]
+    verbs: ["*"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "watch", "list", "create", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bwbble-controller
+  namespace: bwbble-dev
+subjects:
+  - kind: ServiceAccount
+    name: bwbble-controller
+    namespace: bwbble-dev
+roleRef:
+  kind: Role
+  name: bwbble-controller
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bwbble-controller
+  namespace: bwbble-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bwbble-controller
+  template:
+    metadata:
+      labels:
+        app: bwbble-controller
+    spec:
+      containers:
+        - name: controller
+          image: bwbble/controller:16
+          args:
+            - "--namespace=bwbble-dev"
+
+      serviceAccountName: bwbble-controller

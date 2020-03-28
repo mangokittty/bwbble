@@ -3,6 +3,7 @@ import six
 import pprint
 import re  # noqa: F401
 from typing import List
+from datetime import datetime
 
 
 class V1AlignJobSpec(object):
@@ -32,6 +33,7 @@ class V1AlignJobSpec(object):
         bwbble_version: int = "latest",
         bubble_file: str = None,
         snp_file: str = None,
+        **kwags
     ):
         self.reads_count = reads_count
         self.reads_file = reads_file
@@ -87,13 +89,36 @@ class V1AlignJobSpec(object):
 
 
 class V1AlignJobStatus(object):
-    openapi_types = {"stage": "str", "waiting_for": "List[str]"}
+    openapi_types = {
+        "stage": "str",
+        "waiting_for": "list[str]",
+        "start_time": "datetime",
+        "end_time": "datetime",
+        "execution_times": "dict(str, dict(str, dict(str, str)))",
+    }
 
-    attribute_map = {"stage": "stage", "waiting_for": "waitingFor"}
+    attribute_map = {
+        "stage": "stage",
+        "waiting_for": "waitingFor",
+        "start_time": "startTime",
+        "end_time": "endTime",
+        "execution_times": "executionTimes",
+    }
 
-    def __init__(self, stage: str = None, waiting_for: List[str] = None):
+    def __init__(
+        self,
+        stage: str = None,
+        waiting_for: List[str] = None,
+        start_time: datetime = None,
+        end_time: datetime = None,
+        execution_times: dict = None,
+        **kwags
+    ):
         self.stage = stage
         self.waiting_for = waiting_for or []
+        self.start_time = start_time
+        self.end_time = end_time
+        self.execution_times = execution_times or {}
 
     def to_dict(self):
         """Returns the model properties as a dict"""
@@ -163,6 +188,7 @@ class V1AlignJob(object):
         metadata: client.V1ObjectMeta = None,
         spec: V1AlignJobSpec = None,
         status: V1AlignJobStatus = None,
+        **kwags
     ):
         super().__init__()
 
@@ -172,7 +198,7 @@ class V1AlignJob(object):
 
     @property
     def api_version(self):
-        return "v1"
+        return "bwbble.aideen.dev/v1"
 
     @property
     def kind(self):
@@ -222,3 +248,9 @@ class V1AlignJob(object):
     def __ne__(self, other):
         """Returns true if both objects are not equal"""
         return not self == other
+
+
+def add_to_api_client(api_client: client.ApiClient):
+    api_client.NATIVE_TYPES_MAPPING["V1AlignJob"] = V1AlignJob
+    api_client.NATIVE_TYPES_MAPPING["V1AlignJobSpec"] = V1AlignJobSpec
+    api_client.NATIVE_TYPES_MAPPING["V1AlignJobStatus"] = V1AlignJobStatus

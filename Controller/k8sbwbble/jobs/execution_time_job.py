@@ -10,9 +10,37 @@ class ExecutionTimeJob(Job):
         super().__init__(stage)
 
     def run(self, job: V1AlignJob):
+        job.status.execution_times[self.stage] = {}
+
         # config.load_kube_config()
         # pod_name = "bwbble-align-dummylargereads1-range-0--1-799ms"
         try:
+
+            # get execution time for pods
+            api_response = self.api_instance.list_namespaced_job(
+                namespace=job.metadata.namespace,
+                label_selector=f"bwbble-release={job.metadata.name},bwbble-stage={self.stage}",
+            )
+
+            for item in api_response.items:
+                job.status.execution_times[self.stage][item.metadata.name] = {
+                    "total": -1
+                }
+
+                if item.status.completion_time:
+                    execution_time = (
+                        item.status.completion_time - item.status.start_time
+                    )
+                    print(
+                        item.metadata.name, " (job): ", execution_time,
+                    )
+
+                    job.status.execution_times[self.stage][item.metadata.name][
+                        "total"
+                    ] = str(execution_time)
+                else:
+                    print(item.metadata.name, " (job): Not yet finished")
+
             if self.stage == "align":
                 # get execution time for pods
                 api_response = CoreV1Api(self.api_client).list_namespaced_pod(
@@ -44,20 +72,9 @@ class ExecutionTimeJob(Job):
                                     " (logs): ",
                                     timedelta(seconds=float(rem[1])),
                                 )
-            # get execution time for pods
-            api_response = self.api_instance.list_namespaced_job(
-                namespace=job.metadata.namespace,
-                label_selector=f"bwbble-release={job.metadata.name},bwbble-stage={self.stage}",
-            )
-            for item in api_response.items:
-                if item.status.completion_time:
-                    print(
-                        item.metadata.name,
-                        " (job): ",
-                        item.status.completion_time - item.status.start_time,
-                    )
-                else:
-                    print(item.metadata.name, " (job): Not yet finished")
 
+                                job.status.execution_times[self.stage][
+                                    item.metadata.labels["job-name"]
+                                ]["internal"] = str(timedelta(seconds=float(rem[1])))
         except ApiException as e:
             print(e)

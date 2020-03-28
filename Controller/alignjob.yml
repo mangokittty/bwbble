@@ -1,0 +1,13 @@
+---
+apiVersion: bwbble.aideen.dev/v1
+kind: AlignJob
+metadata:
+  name: test-job
+  namespace: bwbble-dev
+spec:
+  alignParallelism: 2
+  readsCount: 512000
+  readsFile: dummy_reads.fastq
+  bubbleFile: chr21_bubble.data
+  snpFile: chr21_ref_w_snp_and_bubble.fasta
+  bwbbleVersion: "313"

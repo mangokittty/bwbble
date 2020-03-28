@@ -1,0 +1,86 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  # name must match the spec fields below, and be in the form: <plural>.<group>
+  name: alignjobs.bwbble.aideen.dev
+spec:
+  # group name to use for REST API: /apis/<group>/<version>
+  group: bwbble.aideen.dev
+  # list of versions supported by this CustomResourceDefinition
+  versions:
+    - name: v1
+      # Each version can be enabled/disabled by Served flag.
+      served: true
+      # One and only one version must be marked as the storage version.
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: ["readsFile", "readsCount", "bubbleFile", "snpFile"]
+              properties:
+                readsFile:
+                  type: string
+                  description: "The name of the file from which DNA reads will be consumed."
+                bwbbleVersion:
+                  type: string
+                  description: "The version of the bwbble toolchain to use."
+                  default: "latest"
+                readsCount:
+                  type: integer
+                  description: "The number of reads in the reads file."
+                alignParallelism:
+                  type: integer
+                  description: "The number of containers that will each run a section of the reads file."
+                  default: 1
+                bubbleFile:
+                  type: string
+                  description: "The reference genome bubble data used in aln2sam to create aligned reads .SAM file."
+                snpFile:
+                  type: string
+                  description: "The multireference genome file for short-read alignment of the reads file."
+            status:
+              type: object
+              properties:
+                startTime:
+                  type: string
+                endTime:
+                  type: string
+                stage:
+                  type: string
+                waitingFor:
+                  type: array
+                  items:
+                    type: string
+                  default: []
+                executionTimes:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      required:
+                        - total
+                      properties:
+                        total:
+                          type: string
+                          description: "The total end-to-end execution time measured by the Kubernetes API"
+                        internal:
+                          type: string
+                          description: "An internally measured execution time from the application."
+
+  # either Namespaced or Cluster
+  scope: Namespaced
+  names:
+    # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+    plural: alignjobs
+    # singular name to be used as an alias on the CLI and for display
+    singular: alignjob
+    # kind is normally the CamelCased singular type. Your resource manifests use this.
+    kind: AlignJob
+    # shortNames allow shorter string to match your resource on the CLI
+    shortNames:
+      - aj
+      - ajs

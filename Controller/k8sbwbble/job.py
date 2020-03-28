@@ -21,6 +21,7 @@ from kubernetes.client import (
     V1Volume,
     V1VolumeMount,
 )
+from kubernetes.client.rest import ApiException
 from kubernetes.watch import Watch
 from typing import List
 
@@ -71,23 +72,36 @@ class Job(object):
                 V1EnvVar(name="ARGS_FILE", value="/var/run/args/container_args")
             )
 
-            created_resources.append(
-                CoreV1Api(self.api_client).create_namespaced_config_map(
-                    job.metadata.namespace,
-                    V1ConfigMap(
-                        api_version="v1",
-                        kind="ConfigMap",
-                        metadata=V1ObjectMeta(
-                            name=self.get_job_name(job, name_suffix), labels=labels,
-                        ),
-                        data={
-                            "container_args": " ".join(
-                                [f"'{a}'" if " " in a else a for a in args]
-                            ),
-                        },
+            config_map = V1ConfigMap(
+                api_version="v1",
+                kind="ConfigMap",
+                metadata=V1ObjectMeta(
+                    name=self.get_job_name(job, name_suffix), labels=labels,
+                ),
+                data={
+                    "container_args": " ".join(
+                        [f"'{a}'" if " " in a else a for a in args]
                     ),
-                )
+                },
             )
+
+            try:
+                created_resources.append(
+                    CoreV1Api(self.api_client).create_namespaced_config_map(
+                        job.metadata.namespace, config_map
+                    )
+                )
+            except ApiException as ex:
+                if ex.status == 409:
+                    created_resources.append(
+                        CoreV1Api(self.api_client).replace_namespaced_config_map(
+                            self.get_job_name(job, name_suffix),
+                            job.metadata.namespace,
+                            config_map,
+                        )
+                    )
+                else:
+                    raise ex
 
         if env is not None:
             env_array.extend(env)
@@ -182,11 +196,21 @@ class Job(object):
                 V1VolumeMount(mount_path="/var/run/args", name="args")
             )
 
-        created_resources.append(
-            BatchV1Api(self.api_client).create_namespaced_job(
-                job.metadata.namespace, job_spec
+        try:
+            created_resources.append(
+                BatchV1Api(self.api_client).create_namespaced_job(
+                    job.metadata.namespace, job_spec
+                )
             )
-        )
+        except ApiException as ex:
+            if ex.status == 409:
+                created_resources.append(
+                    BatchV1Api(self.api_client).replace_namespaced_job(
+                        job.metadata.name, job.metadata.namespace, job_spec
+                    )
+                )
+            else:
+                raise ex
 
         return created_resources
 
