@@ -2,7 +2,7 @@
 apiVersion: bwbble.aideen.dev/v1
 kind: AlignJob
 metadata:
-  name: test-job
+  name: test-job5
   namespace: bwbble-dev
 spec:
   alignParallelism: 2

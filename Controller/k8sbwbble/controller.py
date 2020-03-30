@@ -4,6 +4,7 @@ from .jobs.merge_job import MergeJob
 from .jobs.aln2sam_job import Aln2SamJob
 from .jobs.sampad_job import SampadJob
 from .jobs.execution_time_job import ExecutionTimeJob
+from .jobs.cleanup_job import CleanupJob
 from threading import Thread
 from json import dumps
 import datetime
@@ -19,7 +20,7 @@ from kubernetes.client import (
 from kubernetes.client.rest import RESTResponse
 from typing import List
 
-
+# triggered by save_align_job_state as well as kubectl
 class AlignJobWatcherThread(Thread):
     def __init__(self, controller: "Controller", namespace: str):
         super().__init__()
@@ -37,9 +38,10 @@ class AlignJobWatcherThread(Thread):
             self.namespace,
             "alignjobs",
         ):
-            self.controller.on_align_job_updated(event["object"])
+            self.controller.on_align_job_updated(event["object"], event["type"])
 
 
+# monitors resources (jobs) created by create_job_resources
 class BatchJobWatcherThread(Thread):
     def __init__(self, controller: "Controller", namespace: str):
         super().__init__()
@@ -54,7 +56,7 @@ class BatchJobWatcherThread(Thread):
             BatchV1Api(self.controller.api_client).list_namespaced_job, self.namespace,
         ):
             # TODO: Ignore deletion and creation events (only trigger on updates)
-            self.controller.on_job_updated(event["object"])
+            self.controller.on_job_updated(event["object"], event["type"])
 
 
 class MockResponse(object):
@@ -103,12 +105,12 @@ class Controller(object):
             job,
         )
 
-    def on_job_updated(self, job: V1Job):
+    def on_job_updated(self, job: V1Job, change_type: str):
         """
         Handles the change of state in a Kubernetes Batch V1 job (the unit of execution
         we work with in K8s).
         """
-        print(f"Job {job.metadata.name} updated")
+        print(f"Job {job.metadata.name} {change_type}")
 
         try:
             if job.status.completion_time is None:
@@ -131,11 +133,11 @@ class Controller(object):
             #       e.g. if a job fails permanently/is deleted
             print(ex)
 
-    def on_align_job_updated(self, job: V1AlignJob):
+    def on_align_job_updated(self, job: V1AlignJob, change_type: str):
         """
         Handles the change of state in one of our high-level AlignJobs (a custom resource).
         """
-        print(f"AlignJob {job.metadata.name} updated")
+        print(f"AlignJob {job.metadata.name} {change_type}")
 
         try:
             if len(job.status.waiting_for) > 0:
@@ -157,18 +159,17 @@ class Controller(object):
                 job.status.stage = "merge"
                 MergeJob().run(job)
             elif job.status.stage == "merge":
-
                 job.status.stage = "aln2sam"
                 Aln2SamJob().run(job)
             elif job.status.stage == "aln2sam":
                 job.status.stage = "sampad"
                 SampadJob().run(job)
             elif job.status.stage == "sampad":
+                job.status.stage = "cleanup"
+                CleanupJob().run(job)
+            elif job.status.stage == "cleanup":
                 job.status.stage = "completed"
                 job.status.end_time = datetime.datetime.utcnow()
-
-            # TODO: Add a cleanup phase (to remove all jobs and configmaps)
-
             elif job.status.stage == "completed":
                 print(
                     f"Finished full alignment of {job.spec.reads_file} with parallelism of {job.spec.align_parallelism}"
