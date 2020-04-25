@@ -4,7 +4,7 @@ kind: AlignJob
 metadata:
   name: test-job5
   namespace: bwbble-dev
-spec: #declares desired state
+spec:
   alignParallelism: 2
   readsCount: 512000
   readsFile: dummy_reads.fastq

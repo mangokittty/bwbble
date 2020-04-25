@@ -16,5 +16,5 @@ class CleanupJob(Job):
 
         CoreV1Api(self.api_client).delete_collection_namespaced_config_map(
             job.metadata.namespace,
-            label_selector=f"bwbble-alignjob-name={job.metadata.name}",we
+            label_selector=f"bwbble-alignjob-name={job.metadata.name}",
         )

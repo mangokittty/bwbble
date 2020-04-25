@@ -1,6 +1,6 @@
 from ..job import V1AlignJob, Job
 from ..file_range import Range
-from kubernetes.client import V1Job
+from kubernetes.client import V1Job, V1ResourceRequirements
 
 
 class AlignJob(Job):
@@ -25,6 +25,10 @@ class AlignJob(Job):
                     f"/mg-align-output/{job.metadata.name}.aligned_reads.{range.name}.aln",
                 ],
                 name_suffix=f"-{range.name}",
+                resources=V1ResourceRequirements(
+                    limits={"cpu": "1", "memory": "2Gi"},
+                    requests={"cpu": "1", "memory": "2Gi"},
+                ),
             )
 
             job.status.waiting_for.extend(

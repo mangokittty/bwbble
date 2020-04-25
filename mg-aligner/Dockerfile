@@ -15,4 +15,4 @@ RUN apt-get update && apt-get install -y libgomp1
 
 WORKDIR /
 ENTRYPOINT ["/usr/bin/entrypoint"]
-CMD [] 
+CMD []

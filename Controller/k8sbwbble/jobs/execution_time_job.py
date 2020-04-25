@@ -12,8 +12,6 @@ class ExecutionTimeJob(Job):
     def run(self, job: V1AlignJob):
         job.status.execution_times[self.stage] = {}
 
-        # config.load_kube_config()
-        # pod_name = "bwbble-align-dummylargereads1-range-0--1-799ms"
         try:
 
             # get execution time for pods

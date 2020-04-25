@@ -29,6 +29,8 @@ def parse_timedelta(input: str) -> timedelta:
 def main():
     print("Configuring bwbble controller for access to K8s API")
 
+    benchmark_type = "example"
+
     # Load the Kubernetes config file
     try:
         load_incluster_config()
@@ -36,7 +38,7 @@ def main():
         load_kube_config()
 
     controller = Controller()
-    with open("benchmarking_large.csv", mode="w", buffering=1) as bench_file:
+    with open("benchmarking_example.csv", mode="w", buffering=1) as bench_file:
         bench_writer = csv.writer(
             bench_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
         )
@@ -65,7 +67,7 @@ def main():
         # TODO: store some overall stats for the runs
 
         run_stats = {}
-        for parallelism in range(1, 17):
+        for parallelism in range(1, 16):
 
             align_times = []
             align_job_times = []
@@ -78,13 +80,13 @@ def main():
                 print(f"Running index {run_index} with parallelism {parallelism}")
                 job = V1AlignJob(
                     metadata=V1ObjectMeta(
-                        name=f"bench-large-p{parallelism}-r{run_index}",
+                        name=f"bench-{benchmark_type}-p{parallelism}-r{run_index}",
                         namespace="bwbble-dev",
                     ),
                     spec=V1AlignJobSpec(
                         align_parallelism=parallelism,
-                        reads_count=2048000,
-                        reads_file="dummy_reads_large.fastq",
+                        reads_count=512000,
+                        reads_file="dummy_reads.fastq",
                         bubble_file="chr21_bubble.data",
                         snp_file="chr21_ref_w_snp_and_bubble.fasta",
                         bwbble_version="313",
